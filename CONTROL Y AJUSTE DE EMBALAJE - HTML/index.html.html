@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Control y Ajuste de Embalajes 3101</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- EmailJS SDK Oficial -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        /* Estilos personalizados APB */
+        .bg-striped-green {
+            background: repeating-linear-gradient(
+                45deg,
+                #f0fdf4,
+                #f0fdf4 12px,
+                #bbf7d0 12px,
+                #bbf7d0 24px
+            );
+        }
+        /* Deshabilitar zoom al hacer doble clic en iOS */
+        touch-action: manipulation;
+        
+        /* Ocultar scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-900 flex flex-col min-h-screen selection:bg-emerald-500 selection:text-white">
+
+    <!-- NOTIFICACIONES FLOTANTES GIGANTES -->
+    <div id="toast-notification" class="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm font-bold px-6 py-4 rounded-xl shadow-2xl z-50 flex items-center space-x-3 transition-all duration-300 opacity-0 pointer-events-none">
+        <i data-lucide="info" class="w-5 h-5 text-emerald-400"></i>
+        <span id="toast-text">Notificación APB</span>
+    </div>
+
+    <!-- CABECERA PRINCIPAL SUPER VISUAL -->
+    <header class="bg-slate-950 text-white shadow-lg sticky top-0 z-40 border-b-2 border-emerald-500">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-600 p-2.5 rounded-2xl shadow-inner">
+                    <i data-lucide="clipboard-check" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-black tracking-widest text-slate-100">PLANILLA DIGITAL 3101</h1>
+                    <span class="text-[10px] text-slate-400 font-extrabold tracking-wider uppercase">Laminados • Control de Embalajes</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <!-- Sincronización en la Nube -->
+                <div id="cloud-status-badge" class="bg-slate-900 border border-slate-800 text-[10px] px-3 py-2.5 rounded-xl flex items-center justify-center space-x-1.5 text-slate-400 font-bold shrink-0">
+                    <span class="w-2.5 h-2.5 bg-slate-500 rounded-full animate-pulse mr-1" id="cloud-dot"></span>
+                    <span id="cloud-text">Modo Local</span>
+                </div>
+
+                <div class="flex items-center space-x-1.5 w-full sm:w-auto">
+                    <!-- Botón Sincronizar desde Repo (Automatizado) -->
+                    <button onclick="loadStockFromRepo(true)" class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 text-[11px] font-black px-3.5 py-2.5 rounded-xl flex items-center justify-center space-x-1.5 transition-all shadow-md shrink-0">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span>Sincronizar Repo</span>
+                    </button>
+
+                    <!-- Botón Importar Excel Local -->
+                    <div class="shrink-0">
+                        <label for="csv-file-input" class="cursor-pointer bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-black px-3.5 py-2.5 rounded-xl flex items-center justify-center space-x-1.5 transition-all shadow-md block shrink-0" title="Cargar un archivo CSV directamente desde este dispositivo">
+                            <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+                            <span>Subir Local</span>
+                        </label>
+                        <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVEGACIÓN DE SECCIONES GIGANTES -->
+    <div class="bg-white border-b-2 border-slate-200 sticky top-[125px] sm:top-[68px] z-30 shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-3">
+            
+            <!-- Tabs Táctiles Enormes -->
+            <div class="flex space-x-1.5 overflow-x-auto no-scrollbar py-1">
+                <button onclick="filterSection('TODOS')" id="tab-TODOS" class="tab-btn px-5 py-3 rounded-xl text-xs font-black whitespace-nowrap bg-slate-900 text-white shadow-md transition-all active:scale-95">
+                    🔎 TODOS (<span id="count-all">0</span>)
+                </button>
+                <button onclick="filterSection('ESTANTERIA')" id="tab-ESTANTERIA" class="tab-btn px-5 py-3 rounded-xl text-xs font-black whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95">
+                    📦 ESTANTERÍA (<span id="count-est">0</span>)
+                </button>
+                <button onclick="filterSection('PRIMER')" id="tab-PRIMER" class="tab-btn px-5 py-3 rounded-xl text-xs font-black whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95">
+                    🧪 PRIMER & ADH (<span id="count-prim">0</span>)
+                </button>
+                <button onclick="filterSection('OFICINA')" id="tab-OFICINA" class="tab-btn px-5 py-3 rounded-xl text-xs font-black whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95">
+                    📂 OFICINA (<span id="count-ofic">0</span>)
+                </button>
+                <button onclick="filterSection('PLAYON')" id="tab-PLAYON" class="tab-btn px-5 py-3 rounded-xl text-xs font-black whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95">
+                    🪵 PLAYÓN (<span id="count-playon">0</span>)
+                </button>
+            </div>
+
+            <!-- Filtros de Estado Enormes -->
+            <div class="flex items-center justify-between text-xs text-slate-500 font-bold border-t border-slate-100 pt-2.5">
+                <div class="flex space-x-4">
+                    <label class="flex items-center space-x-2 cursor-pointer p-1">
+                        <input type="radio" name="state-filter" value="all" checked onchange="filterState()" class="w-4.5 h-4.5 text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                        <span class="text-slate-800">Ver Todos</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-1 text-amber-600">
+                        <input type="radio" name="state-filter" value="diff" onchange="filterState()" class="w-4.5 h-4.5 text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                        <span>Con Diferencias</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-1 text-slate-500">
+                        <input type="radio" name="state-filter" value="pending" onchange="filterState()" class="w-4.5 h-4.5 text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                        <span>Pendientes</span>
+                    </label>
+                </div>
+                <div class="bg-slate-100 px-3 py-1 rounded-lg text-slate-600" id="quick-stats">0 / 0 items</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENIDO DE LA PLANILLA APB -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 space-y-4">
+
+        <!-- DASHBOARD DE ESTADÍSTICAS & ALERTAS DE PEDIDO (DIDÁCTICO) -->
+        <div class="grid grid-cols-3 gap-3">
+            <!-- Avance -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col justify-between text-center">
+                <span class="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Avance Conteo</span>
+                <span id="stat-percent" class="text-2xl font-black text-slate-900 mt-1 block">0%</span>
+            </div>
+            <!-- Diferencias -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col justify-between text-center">
+                <span class="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Con Diferencias</span>
+                <span id="stat-diff" class="text-2xl font-black text-amber-600 mt-1 block">0</span>
+            </div>
+            <!-- Botón / Filtro de Punto de Pedido Crítico -->
+            <button onclick="toggleSafetyAlertFilter()" id="btn-safety-filter" class="bg-white hover:bg-rose-50 active:bg-rose-100 p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col justify-between text-center transition-all cursor-pointer">
+                <div class="flex items-center justify-center space-x-1">
+                    <span class="text-[9px] text-rose-500 font-black uppercase tracking-wider">A comprar</span>
+                    <i data-lucide="bell" id="bell-icon" class="w-3.5 h-3.5 text-slate-300"></i>
+                </div>
+                <span id="stat-reorder" class="text-2xl font-black text-rose-600 mt-1 block">0</span>
+            </button>
+        </div>
+
+        <!-- CONTENEDOR DE GRUPOS DE PLANILLAS -->
+        <div id="planilla-sections-container" class="space-y-8 pb-28">
+            <!-- Las secciones Estantería, Adhesivo Primer, Oficina, Playón se inyectarán aquí con su cabecera y grilla -->
+        </div>
+
+    </main>
+
+    <!-- BARRA DE ACCIÓN INFERIOR GIGANTE -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-slate-200 py-4 px-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-35">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="text-left w-full sm:max-w-xs">
+                <div class="text-[9px] text-slate-400 font-black uppercase tracking-wider">Correos de Envío</div>
+                <input type="text" id="target-email" value="admlaminado@muchtek.com, dbargas@muchtek.com" placeholder="correos separados por coma" class="bg-transparent border-b-2 border-slate-200 focus:border-emerald-500 outline-none py-1 text-xs text-slate-800 font-bold w-full transition-colors font-mono">
+            </div>
+            <div class="flex space-x-3 w-full sm:w-auto">
+                <!-- Botón de Restablecer a Cero -->
+                <button onclick="openConfirmResetModal()" class="flex-1 sm:flex-none bg-rose-50 hover:bg-rose-100 text-rose-700 border-2 border-rose-200 py-3 px-5 rounded-2xl text-xs font-black transition-all flex items-center justify-center space-x-1.5" title="Restablecer Planilla">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span>RESTABLECER TODO (CERO)</span>
+                </button>
+                <button onclick="openExportModal()" class="flex-1 sm:flex-none bg-slate-950 hover:bg-slate-900 active:scale-95 text-white py-3 px-6 rounded-2xl text-xs font-black flex items-center justify-center space-x-2 transition-all shadow-md">
+                    <i data-lucide="mail" class="w-4 h-4 text-emerald-400 animate-bounce"></i>
+                    <span>EXPORTAR / ENVIAR</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EDICIÓN DE STOCK EN RECUADRO CELDA GIGANTE (APB ULTRA SIMPLE) -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity duration-300">
+        <div class="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Encabezado simplificado -->
+            <div class="bg-slate-950 text-white p-5 relative">
+                <div class="flex items-center space-x-2">
+                    <span id="modal-section" class="text-[9px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-md font-black tracking-widest uppercase border border-slate-700">ESTANTERÍA</span>
+                    <span id="modal-safety-tag" class="text-[9px] bg-rose-600 text-white px-2.5 py-1 rounded-md font-black hidden animate-pulse">⚠️ PUNTO DE PEDIDO</span>
+                </div>
+                <h3 id="modal-desc" class="text-base font-extrabold mt-3 pr-8 leading-tight">Descripción del material</h3>
+                <div class="flex items-center space-x-4 mt-3 text-[11px] text-slate-400">
+                    <span>Código: <strong id="modal-code" class="text-slate-200 font-mono text-xs">EM-011</strong></span>
+                    <span>Cta: <span id="modal-cta" class="font-mono">42000244</span></span>
+                </div>
+                <button onclick="closeEditModal()" class="absolute right-5 top-5 text-slate-400 hover:text-white transition-colors bg-slate-800 p-1.5 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Panel de Entrada Táctil APB Limpio -->
+            <div class="p-6 space-y-5 overflow-y-auto no-scrollbar">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
+                        <span class="text-[9px] text-slate-400 font-black uppercase block">Stock SAP</span>
+                        <span class="text-2xl font-black text-slate-900" id="modal-sap">24.500</span> <span class="text-[10px] text-slate-500 font-bold" id="modal-um">UN</span>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
+                        <span class="text-[9px] text-slate-400 font-black uppercase block">Stock Mínimo (Seg)</span>
+                        <span class="text-2xl font-black text-slate-500" id="modal-safety">5.000</span> <span class="text-[10px] text-slate-500 font-bold" id="modal-um-sec">UN</span>
+                    </div>
+                </div>
+
+                <!-- Input Táctil Enorme -->
+                <div class="space-y-4 pt-3 text-center">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">REGISTRAR CONTEO FÍSICO REAL</label>
+                    
+                    <!-- Campo de texto central masivo -->
+                    <div class="flex justify-center mb-2">
+                        <input type="number" id="physical-input" class="w-full max-w-[220px] text-center text-5xl font-black border-b-4 border-slate-300 focus:border-emerald-500 focus:outline-none p-2 bg-slate-50 rounded-lg text-slate-900 font-mono shadow-inner" placeholder="0" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones Finales del Modal -->
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex space-x-3">
+                <button onclick="closeEditModal()" class="flex-1 py-4 text-slate-500 bg-white border-2 border-slate-200 rounded-2xl text-xs font-black active:bg-slate-50 transition-colors">CANCELAR</button>
+                <button onclick="savePhysicalValue()" class="flex-1 py-4 text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-xs font-black active:bg-emerald-800 transition-all shadow-md shadow-emerald-100">CONFIRMAR STOCK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EXPORTACIÓN Y COPIADOS RÁPIDOS AUTOMÁTICOS -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 hidden overflow-y-auto font-sans">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-xl overflow-hidden flex flex-col my-4 max-h-[95vh]">
+            <!-- Encabezado con tabs internas para Compras vs SAP -->
+            <div class="bg-slate-900 text-white p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="send" class="w-5 h-5 text-emerald-400"></i>
+                        <span class="text-xs font-bold tracking-wider uppercase">HERRAMIENTAS DE EXPORTACIÓN</span>
+                    </div>
+                    <button onclick="closeExportModal()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                
+                <!-- Pestañas internas para conmutar el tipo de reporte -->
+                <div class="flex space-x-2 border-t border-slate-800 pt-2 text-xs">
+                    <button onclick="switchExportTab('diferencias')" id="tab-exp-diferencias" class="flex-1 py-3 text-center rounded-xl font-black bg-slate-850 text-emerald-400">
+                        1. Diferencias SAP
+                    </button>
+                    <button onclick="switchExportTab('compras')" id="tab-exp-compras" class="flex-1 py-3 text-center rounded-xl font-black bg-transparent text-slate-400 hover:text-white">
+                        2. Pedido Compras
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENIDOS DE LAS PESTAÑAS -->
+            <div class="p-5 overflow-y-auto flex-1 space-y-4 no-scrollbar">
+                
+                <!-- CONFIGURACIÓN DE EMAILJS -->
+                <div class="border-2 border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                    <button onclick="toggleEmailJSConfig()" class="w-full p-3.5 text-left font-black text-xs text-slate-700 flex justify-between items-center hover:bg-slate-100 transition-all">
+                        <span class="flex items-center space-x-2">
+                            <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+                            <span>Ajustes de Conexión (EmailJS)</span>
+                        </span>
+                        <i data-lucide="chevron-down" id="emailjs-chevron" class="w-4 h-4 transition-transform"></i>
+                    </button>
+                    <div id="emailjs-config-panel" class="hidden p-4 border-t border-slate-200 bg-white space-y-3 text-xs">
+                        <p class="text-[10px] text-slate-400 leading-normal">Aquí se definen las llaves de envío automático. Se graban localmente.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div>
+                                <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Public Key</label>
+                                <input type="text" id="emailjs-public-key" placeholder="A_xxxxxxxxxxxx" class="w-full p-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 font-mono text-[11px]" oninput="saveEmailJSParams()">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Service ID</label>
+                                <input type="text" id="emailjs-service-id" placeholder="service_xxxx" class="w-full p-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 font-mono text-[11px]" oninput="saveEmailJSParams()">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Template ID</label>
+                                <input type="text" id="emailjs-template-id" placeholder="template_xxxx" class="w-full p-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 font-mono text-[11px]" oninput="saveEmailJSParams()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 1: DIFERENCIAS (Vista tradicional y copiado directo SAP) -->
+                <div id="export-tab-content-diferencias" class="space-y-3">
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-3 text-[11px] text-amber-800 flex items-start space-x-2">
+                        <i data-lucide="info" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+                        <p class="leading-relaxed">Se descartan ítems con diferencia cero. Haz clic en "Copiar para SAP" para pegarlo masivamente en la MI04.</p>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl overflow-hidden max-h-[160px] overflow-y-auto">
+                        <table class="w-full text-[10px] text-left">
+                            <thead class="bg-slate-50 text-slate-500 sticky top-0 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2">Material</th>
+                                    <th class="p-2 text-right">SAP</th>
+                                    <th class="p-2 text-right">Físico</th>
+                                    <th class="p-2 text-right">Ajuste</th>
+                                    <th class="p-2 text-center">Cuenta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-table-body" class="divide-y divide-slate-100 font-mono">
+                                <!-- Filas de diferencias -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Panel de Copiado Rápido para SAP -->
+                    <div class="bg-slate-900 rounded-xl p-3.5 text-slate-300">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Formato de pegado en SAP</span>
+                            <button onclick="copySapBlockToClipboard()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3 py-1.5 rounded-lg flex items-center space-x-1 transition-colors">
+                                <i data-lucide="copy" class="w-3 h-3"></i>
+                                <span>COPIAR PARA SAP</span>
+                            </button>
+                        </div>
+                        <pre id="sap-raw-textarea" class="text-[10px] font-mono whitespace-pre-wrap bg-slate-950 p-2 rounded-lg max-h-[100px] overflow-y-auto text-emerald-400 select-all"></pre>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: COMPRAS -->
+                <div id="export-tab-content-compras" class="space-y-3 hidden">
+                    <div class="bg-rose-50 border border-rose-100 rounded-xl p-3 text-[11px] text-rose-800 flex items-start space-x-2">
+                        <i data-lucide="bell" class="w-4 h-4 text-rose-600 mt-0.5 shrink-0"></i>
+                        <p class="leading-relaxed font-bold">Listado de materiales con físico menor o igual al Stock de Seguridad.</p>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-xl p-3.5 text-slate-300">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Reporte para Compras</span>
+                            <button onclick="copyPurchasesBlockToClipboard()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3 py-1.5 rounded-lg flex items-center space-x-1 transition-colors">
+                                <i data-lucide="copy" class="w-3 h-3"></i>
+                                <span>COPIAR TEXTO</span>
+                            </button>
+                        </div>
+                        <pre id="purchases-raw-textarea" class="text-[10px] font-mono whitespace-pre-wrap bg-slate-950 p-2 rounded-lg max-h-[150px] overflow-y-auto text-slate-300 select-all"></pre>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Acciones generales de descarga y envío -->
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+                <button onclick="downloadCleanCSV()" class="flex-1 py-3.5 bg-white border-2 border-slate-200 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-100 flex items-center justify-center space-x-1.5 transition-colors">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>DESCARGAR EXCEL (CSV)</span>
+                </button>
+                <button onclick="sendViaEmailJS()" id="send-email-btn" class="flex-1 py-3.5 bg-slate-950 hover:bg-slate-900 active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center space-x-1.5 transition-colors shadow-md font-sans">
+                    <i data-lucide="send" class="w-4 h-4 text-emerald-400"></i>
+                    <span>ENVIAR REPORTE AUTOMÁTICO</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN DE RESTABLECIMIENTO (ABP) -->
+    <div id="confirm-reset-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden border-2 border-rose-500">
+            <div class="bg-rose-700 text-white p-4 flex items-center space-x-2">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                <span class="text-xs font-black tracking-wider uppercase">Restablecer planilla</span>
+            </div>
+            <div class="p-5 text-slate-700 text-xs leading-relaxed space-y-2.5">
+                <p class="font-black text-sm">¿Deseas vaciar la planilla por completo?</p>
+                <p class="text-[11px] text-slate-400 leading-normal">Esta acción pondrá en <strong class="text-rose-600 font-bold">cero (0)</strong> tanto el <strong class="text-slate-950 font-bold">Stock SAP</strong> como el <strong class="text-slate-950">Stock Físico</strong> de todos los materiales cargados.</p>
+                <p class="text-[10px] bg-slate-50 border border-slate-150 p-2.5 rounded-lg text-slate-400 italic">Los cambios se guardarán automáticamente en la nube en tiempo real.</p>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-100 flex justify-end space-x-2 text-xs">
+                <button onclick="closeConfirmResetModal()" class="px-4 py-2.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-600">Cancelar</button>
+                <button onclick="executeMasterReset()" class="px-5 py-2.5 bg-rose-600 text-white rounded-lg font-black hover:bg-rose-700 active:bg-rose-800">Sí, borrar todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN DE LIMPIEZA DE CONTEOS FÍSICOS (ABP) -->
+    <div id="confirm-clear-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden border-2 border-slate-950">
+            <div class="bg-slate-950 text-white p-4 flex items-center space-x-2">
+                <i data-lucide="rotate-ccw" class="w-5 h-5 text-emerald-400"></i>
+                <span class="text-xs font-black tracking-wider uppercase">Reiniciar Conteo Semanal</span>
+            </div>
+            <div class="p-5 text-slate-700 text-xs leading-relaxed space-y-2.5">
+                <p class="font-black text-sm">¿Deseas vaciar los conteos físicos?</p>
+                <p class="text-[11px] text-slate-400 leading-normal">Esta acción pondrá en <strong class="text-rose-600 font-bold">No contado</strong> el stock físico de toda la planilla para iniciar una nueva recorrida.</p>
+                <p class="text-[11px] text-slate-500 font-medium">El stock SAP importado permanecerá intacto.</p>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-100 flex justify-end space-x-2 text-xs">
+                <button onclick="closeConfirmClearModal()" class="px-4 py-2.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-600">Cancelar</button>
+                <button onclick="executeClearCounts()" class="px-5 py-2.5 bg-slate-950 text-white rounded-lg font-black hover:bg-slate-800">Sí, vaciar conteos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE LOGICA PRINCIPAL -->
+    <script>
+        // Datos maestros iniciales de materiales de Muchtek con su correspondiente sector agrupado
+        const INITIAL_DATA = [
+            // ESTANTERIA / DEPOSITO (EM-* y Burletes/Felpa)
+            { section: "ESTANTERIA", material: "131005300", desc: "Burlete de estanq. ext./acrist. 2,5 m ne", sap: 3, um: "ROL", physical: null, cta: "NOTIF", cc: "TPF1312000", safety: 2 },
+            { section: "ESTANTERIA", material: "131015300", desc: "Burlete DC 3,5 mm uso Rollos 300m", sap: 4, um: "ROL", physical: null, cta: "NOTIF", cc: "TPF1312000", safety: 2 },
+            { section: "ESTANTERIA", material: "131025300", desc: "Burlete de estanqueidad interior negro", sap: 0, um: "ROL", physical: null, cta: "NOTIF", cc: "TPF1312000", safety: 2 },
+            { section: "ESTANTERIA", material: "930035300", desc: "Burlete de contravidrio 1,5 mm EPDM negr", sap: 1, um: "ROL", physical: null, cta: "NOTIF", cc: "TPF1312000", safety: 2 },
+            { section: "ESTANTERIA", material: "932003999", desc: "Felpa 5x7 mm Gris, 1200mt", sap: 0, um: "ROL", physical: null, cta: "NOTIF", cc: "TPF1312000", safety: 4 },
+            { section: "ESTANTERIA", material: "EM-009/1", desc: "FILM STREETCH 50CMX20MIC MANUAL  5 KG", sap: 50, um: "KG", physical: null, cta: "42000243", cc: "TPF1312000", safety: 10 },
+            { section: "ESTANTERIA", material: "EM-009/2", desc: "FILM STREETCH 10CMX20MIC MANUAL PRECORTE", sap: 196, um: "KG", physical: null, cta: "42000243", cc: "TPF1312000", safety: 50 },
+            { section: "ESTANTERIA", material: "EM-011", desc: "ETIQ AUTOADHESIVA COTE 100X60MM \" OUT\"", sap: 26950, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 4 },
+            { section: "ESTANTERIA", material: "EM-011/3", desc: "ETIQ. AUTAD. ROSA  100X60MM \" OUT\"", sap: 65200, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 19600 },
+            { section: "ESTANTERIA", material: "EM-011/4", desc: "ETIQ AUTOADHESIVA 100X60MM NARANJA(2454)", sap: 24500, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 19600 },
+            { section: "ESTANTERIA", material: "EM-011/5", desc: "ETIQ. AUTADHESIVA AZUL  100X60MM (2454)", sap: 38400, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "ESTANTERIA", material: "EM-011/6", desc: "ETIQ. AUTADHESIVA AMARILLA  100X60MM (2454)", sap: 12250, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 19600 },
+            { section: "ESTANTERIA", material: "EM-011/7", desc: "ETIQ. AUTADHESIVA LILA 100X60MM (2454)", sap: 2400, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 19600 },
+            { section: "ESTANTERIA", material: "EM-012", desc: "ETIQUETA AUTOADHESIVA 58X30MM (2454)", sap: 0, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 19600 },
+            { section: "ESTANTERIA", material: "EM-012/1", desc: "ETIQUETA AUTOADHESIVA ROSA 58X30MM (4600)", sap: 74400, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 18400 },
+            { section: "ESTANTERIA", material: "EM-012/2", desc: "ETIQ. AUTADHESIVA AZUL  58X30MM (4600)", sap: 165600, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 18400 },
+            { section: "ESTANTERIA", material: "EM-012/3", desc: "ETIQ. AUTADHESIVA AMARILLA  58X30MM (4600)", sap: 165600, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 18400 },
+            { section: "ESTANTERIA", material: "EM-012/4", desc: "ETIQ. AUTADHESIVA NARANJA  58X30MM (4600)", sap: 33400, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 18400 },
+            { section: "ESTANTERIA", material: "EM-012/5", desc: "ETIQ. AUTADHESIVA LILA  58X30MM (4600)", sap: 0, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 18400 },
+            { section: "ESTANTERIA", material: "EM-013", desc: "RIBBON NEGRO 102 X 450 DIAMETRO 75", sap: 9, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 5 },
+            { section: "ESTANTERIA", material: "EM-018", desc: "ETIQ AUTOADHESIVA 160X270MM \" OUT\"", sap: 7500, um: "ROL", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "ESTANTERIA", material: "EM-026", desc: "BOLSA TUBO CRISTAL X17CM-60Μ-IMPRESA", sap: 63, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 30 },
+            { section: "ESTANTERIA", material: "EM-026/1", desc: "BOLSA TUBO CRISTAL  X33CM-60Μ-IMPRESA", sap: 48, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 30 },
+            { section: "ESTANTERIA", material: "EM-026/3", desc: "BOLSA TUBO BLANCO 17CM-60Μ-IMPRESA", sap: 1, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 30 },
+            { section: "ESTANTERIA", material: "EM-026/4", desc: "BOLSA TUBO BLANCO X33CM-60Μ-IMPRESA", sap: 0, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 30 },
+            { section: "ESTANTERIA", material: "EM-026/5", desc: "BOLSA TUBO CRISTAL X38CM-60Μ S/IMPRESION", sap: 26, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 30 },
+            { section: "ESTANTERIA", material: "EM-026/6", desc: "BOLSA TUBO CRISTAL X43CM-60Μ S/IMPRESION", sap: 0, um: "ROL", physical: null, cta: "42000241", cc: "TPF1312000", safety: 10 },
+            { section: "ESTANTERIA", material: "EM-029", desc: "CARTON CAJA EMBALAJE PERFILES (3,13 X1)M", sap: 1250, um: "UN", physical: null, cta: "42000242", cc: "TPF1312000", safety: 500 },
+
+            // PUNTERAS (ESTANTERIA)
+            { section: "ESTANTERIA", material: "EM-071", desc: "PUNTERA WALLPANEL EXTERIOR 200X142X152", sap: 6277, um: "UN", physical: null, cta: "42000242", cc: "TPF1312000", safety: 4800 },
+            { section: "ESTANTERIA", material: "EM-072", desc: "PUNTERA WALLPANEL INTERIOR 200X142X152", sap: 9129, um: "UN", physical: null, cta: "42000242", cc: "TPF1312000", safety: 4800 },
+            { section: "ESTANTERIA", material: "EM-073", desc: "PUNTERA CIELORRASO INTERIOR 230X136X152", sap: 11024, um: "UN", physical: null, cta: "42000243", cc: "TPF1312000", safety: 4800 },
+            { section: "ESTANTERIA", material: "EM-074", desc: "PUNTERA DECK  155X136X151", sap: 1926, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 4800 },
+            { section: "ESTANTERIA", material: "EM-078", desc: "PUNTERA REVEST. ESP 10 MM 230X117X152,12", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 4800 },
+            { section: "ESTANTERIA", material: "EM-079", desc: "PUNTERA REVEST. ESP 8 MM 275X90X152", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 4800 },
+
+            // PRIMER & ADHESIVO (Químicos y fieltros de planta)
+            { section: "PRIMER", material: "L-015", desc: "Lubricante AEROSOL HD440 432cm³", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "PRIMER", material: "L-016", desc: "Thinner Solvente (x18 litros)", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 1 },
+            { section: "PRIMER", material: "L-022", desc: "FIELTRO 70 X 10MM  ROLLO 10 M", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "PRIMER", material: "L-023", desc: "FIELTRO 30 X 10 MM ROLLO 10M", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+
+            // OFICINA (Adhesivos, cintas)
+            { section: "OFICINA", material: "L-017", desc: "Adhesivo para PVC Duke 100 grs", sap: 3, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 3 },
+            { section: "OFICINA", material: "L-019", desc: "Cinta Doble Faz PP BOPP rojo 48mm x 50m", sap: 21, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 5 },
+
+            // PLAYON (Racks de madera estructurales)
+            { section: "PLAYON", material: "EM-033", desc: "RACK MADERA LOCAL 700X800X5850 S/TRATAR", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "PLAYON", material: "EM-035", desc: "RACK MADERA EXPO 700X700X5850 C/TRATAM.", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "PLAYON", material: "EM-036", desc: "RACK MADERA 6000X800X600 S/TRATAMIENTO", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 },
+            { section: "PLAYON", material: "EM-037", desc: "RACK MADERA EXPO 800X850X5850 C/TRATAM", sap: 0, um: "UN", physical: null, cta: "42000244", cc: "TPF1312000", safety: 0 }
+        ];
+
+        // Estado local persistente (V7 unificada para evitar caches viejos)
+        let materials = [];
+        let currentSectionFilter = 'TODOS';
+        let currentStateFilter = 'all'; // 'all', 'diff', 'pending'
+        let showOnlySafetyAlerts = false; // Filtro de Alertas de Reposición
+        let activeMaterialIndex = null;
+        let activeExportTab = 'diferencias';
+
+        // Firebase Cloud Integración
+        let db = null;
+        let auth = null;
+        let appId = 'embalajes-3101';
+        let isCloudEnabled = false;
+        let firestoreUnsubscribe = null;
+
+        // Inicialización de la aplicación
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            initData();
+            authenticateAndListen();
+            // Cargar stock automáticamente desde el archivo local en el servidor al iniciar
+            loadStockFromRepo(false);
+        });
+
+        // Configurar Firebase de forma defensiva
+        function initFirebase() {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    if (firebase.apps.length === 0) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'embalajes-3101';
+                    isCloudEnabled = true;
+                }
+            } catch (e) {
+                console.error("Fallo inicialización de Firebase, operando localmente:", e);
+                isCloudEnabled = false;
+            }
+        }
+
+        // Autenticar y escuchar cambios en la nube en tiempo real
+        async function authenticateAndListen() {
+            const badge = document.getElementById('cloud-status-badge');
+            const dot = document.getElementById('cloud-dot');
+            const txt = document.getElementById('cloud-text');
+
+            if (!isCloudEnabled || !auth || !db) {
+                badge.className = "bg-slate-200 border border-slate-300 text-[10px] px-2.5 py-1.5 rounded-lg flex items-center space-x-1 text-slate-500 font-bold";
+                dot.className = "w-1.5 h-1.5 bg-slate-400 rounded-full mr-1";
+                txt.textContent = "Modo Local";
+                loadLocalData();
+                return;
+            }
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await auth.signInWithCustomToken(__initial_auth_token);
+                } else {
+                    await auth.signInAnonymously();
+                }
+
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        badge.className = "bg-emerald-950 border border-emerald-800 text-[10px] px-2.5 py-1.5 rounded-lg flex items-center space-x-1 text-emerald-400 font-bold shadow-sm";
+                        dot.className = "w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1 animate-pulse";
+                        txt.textContent = "Nube Conectada";
+                        setupFirestoreListener();
+                    } else {
+                        loadLocalData();
+                    }
+                });
+            } catch (e) {
+                console.error("Autenticación fallida, operando de forma offline:", e);
+                loadLocalData();
+            }
+        }
+
+        // Listener en tiempo real de Firestore
+        function setupFirestoreListener() {
+            if (!db || !auth.currentUser) return;
+
+            const masterDocRef = db.collection('artifacts')
+                                   .doc(appId)
+                                   .collection('public')
+                                   .doc('data')
+                                   .collection('inventory')
+                                   .doc('master');
+
+            firestoreUnsubscribe = masterDocRef.onSnapshot((doc) => {
+                if (doc.exists) {
+                    const cloudData = doc.data();
+                    if (cloudData && Array.isArray(cloudData.list)) {
+                        materials = cloudData.list;
+                        renderStats();
+                        renderPlanillaSections();
+                    }
+                } else {
+                    uploadDataToCloud(materials);
+                }
+            }, (error) => {
+                console.error("Error en Firebase onSnapshot, operando localmente:", error);
+                loadLocalData();
+            });
+        }
+
+        // Cargar datos locales de respaldo
+        function loadLocalData() {
+            const stored = localStorage.getItem('embalajes_stock_data_3101_v7');
+            if (stored) {
+                materials = JSON.parse(stored);
+            } else {
+                materials = JSON.parse(JSON.stringify(INITIAL_DATA));
+                localStorage.setItem('embalajes_stock_data_3101_v7', JSON.stringify(materials));
+            }
+            renderStats();
+            renderPlanillaSections();
+        }
+
+        // Subir datos de inventario consolidado a la nube
+        async function uploadDataToCloud(dataList) {
+            if (!isCloudEnabled || !db || !auth.currentUser) return;
+            try {
+                const masterDocRef = db.collection('artifacts')
+                                       .doc(appId)
+                                       .collection('public')
+                                       .doc('data')
+                                       .collection('inventory')
+                                       .doc('master');
+
+                await masterDocRef.set({
+                    list: dataList,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: auth.currentUser.uid
+                });
+            } catch (e) {
+                console.error("Error al escribir en Firestore:", e);
+            }
+        }
+
+        // Cargar o restaurar datos iniciales
+        function initData() {
+            const savedEmail = localStorage.getItem('target_email_3101_v7');
+            if (savedEmail) {
+                document.getElementById('target-email').value = savedEmail;
+            } else {
+                document.getElementById('target-email').value = "admlaminado@muchtek.com, dbargas@muchtek.com";
+            }
+            
+            document.getElementById('target-email').addEventListener('input', (e) => {
+                localStorage.setItem('target_email_3101_v7', e.target.value);
+            });
+
+            // Credenciales preestablecidas de EmailJS
+            const defaultPubKey = 'ijirxUf8mUEC_qUb3';
+            const defaultServId = 'service_91pjmse';
+            const defaultTempId = 'template_ptlap9x';
+
+            const pubKey = localStorage.getItem('emailjs_public_key') || defaultPubKey;
+            const servId = localStorage.getItem('emailjs_service_id') || defaultServId;
+            const tempId = localStorage.getItem('emailjs_template_id') || defaultTempId;
+
+            document.getElementById('emailjs-public-key').value = pubKey;
+            document.getElementById('emailjs-service-id').value = servId;
+            document.getElementById('emailjs-template-id').value = tempId;
+        }
+
+        // Formateador robusto para números
+        function formatNumber(val) {
+            if (val === null || val === undefined || isNaN(val) || val === '') return '0';
+            return Number(val).toLocaleString();
+        }
+
+        // Guardar estado en memoria local y sincronizar con la nube
+        function saveState() {
+            localStorage.setItem('embalajes_stock_data_3101_v7', JSON.stringify(materials));
+            renderStats();
+            if (isCloudEnabled && db && auth.currentUser) {
+                uploadDataToCloud(materials);
+            }
+        }
+
+        // Sincronizar stock directamente leyendo el archivo 'stock.csv' en la misma carpeta (Req. 2)
+        async function loadStockFromRepo(showToastOnSuccess = false) {
+            try {
+                const response = await fetch('./stock.csv');
+                if (!response.ok) {
+                    console.log("No se detectó un archivo 'stock.csv' en el repositorio de la aplicación.");
+                    if (showToastOnSuccess) {
+                        showToast("Archivo 'stock.csv' no encontrado en el servidor/repositorio.");
+                    }
+                    return;
+                }
+                const text = await response.text();
+                const parsedMaterials = parseStockCSV(text);
+                if (parsedMaterials && parsedMaterials.length > 0) {
+                    // Unificar con materiales existentes para preservar la Cuenta Mayor y el Stock de Seguridad
+                    parsedMaterials.forEach(imported => {
+                        const existing = materials.find(m => m.material.trim().toUpperCase() === imported.material.trim().toUpperCase());
+                        if (existing) {
+                            existing.sap = imported.sap;
+                            existing.um = imported.um;
+                            if (imported.desc && imported.desc !== `Material ${imported.material}`) {
+                                existing.desc = imported.desc;
+                            }
+                        } else {
+                            materials.push(imported);
+                        }
+                    });
+
+                    saveState();
+                    renderStats();
+                    renderPlanillaSections();
+                    if (showToastOnSuccess) {
+                        showToast(`¡Sincronizado! Se cargó 'stock.csv' con ${parsedMaterials.length} ítems.`);
+                    }
+                } else {
+                    if (showToastOnSuccess) showToast("Error: El archivo stock.csv no contiene datos válidos.");
+                }
+            } catch (err) {
+                console.error("Error al auto-sincronizar desde el repositorio:", err);
+                if (showToastOnSuccess) {
+                    showToast("No se pudo conectar para leer 'stock.csv'.");
+                }
+            }
+        }
+
+        // Mostrar notificación flotante
+        function showToast(text) {
+            const toast = document.getElementById('toast-notification');
+            const toastText = document.getElementById('toast-text');
+            toastText.textContent = text;
+            
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // Cálculo de métricas generales
+        function renderStats() {
+            const total = materials.length;
+            const counted = materials.filter(m => m.physical !== null).length;
+            const diffs = materials.filter(m => m.physical !== null && (m.sap - m.physical) !== 0).length;
+            
+            const reorderCount = materials.filter(m => m.physical !== null && m.physical <= m.safety).length;
+            const percent = total > 0 ? Math.round((counted / total) * 100) : 0;
+
+            document.getElementById('stat-diff').textContent = diffs;
+            document.getElementById('stat-percent').textContent = `${percent}%`;
+            document.getElementById('stat-reorder').textContent = reorderCount;
+
+            const bell = document.getElementById('bell-icon');
+            const bellBtn = document.getElementById('btn-safety-filter');
+            if (reorderCount > 0) {
+                bell.classList.remove('text-slate-300');
+                bell.classList.add('text-rose-600', 'animate-bounce');
+                if (showOnlySafetyAlerts) {
+                    bellBtn.className = "bg-rose-100 p-4 rounded-2xl border-2 border-rose-300 shadow-sm flex flex-col justify-between text-center transition-all cursor-pointer ring-2 ring-rose-400";
+                } else {
+                    bellBtn.className = "bg-rose-50/50 p-4 rounded-2xl border-2 border-rose-200 shadow-sm flex flex-col justify-between text-center transition-all cursor-pointer hover:bg-rose-100";
+                }
+            } else {
+                bell.classList.remove('text-rose-600', 'animate-bounce');
+                bell.classList.add('text-slate-300');
+                bellBtn.className = "bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col justify-between text-center transition-all cursor-pointer";
+            }
+
+            document.getElementById('count-all').textContent = total;
+            document.getElementById('count-est').textContent = materials.filter(m => m.section === 'ESTANTERIA').length;
+            document.getElementById('count-prim').textContent = materials.filter(m => m.section === 'PRIMER').length;
+            document.getElementById('count-ofic').textContent = materials.filter(m => m.section === 'OFICINA').length;
+            document.getElementById('count-playon').textContent = materials.filter(m => m.section === 'PLAYON').length;
+
+            document.getElementById('quick-stats').textContent = `${counted} de ${total} contados`;
+        }
+
+        // Renderizar las secciones de planilla con diseño didáctico e industrial (Req. 1, 4, 5)
+        function renderPlanillaSections() {
+            const mainContainer = document.getElementById('planilla-sections-container');
+            mainContainer.innerHTML = '';
+
+            const sections = [
+                { id: "ESTANTERIA", title: "Estantería / Depósito", bg: "bg-slate-900", accent: "border-slate-900" },
+                { id: "PRIMER", title: "Primer & Adhesivo", bg: "bg-slate-800", accent: "border-slate-800" },
+                { id: "OFICINA", title: "Oficina", bg: "bg-slate-700", accent: "border-slate-700" },
+                { id: "PLAYON", title: "Playón", bg: "bg-slate-600", accent: "border-slate-600" }
+            ];
+
+            sections.forEach(sec => {
+                if (currentSectionFilter !== 'TODOS' && currentSectionFilter !== sec.id) return;
+
+                const secMaterials = materials.filter(m => {
+                    if (m.section !== sec.id) return false;
+
+                    if (currentStateFilter === 'diff') {
+                        if (m.physical === null || (m.sap - m.physical) === 0) return false;
+                    } else if (currentStateFilter === 'pending') {
+                        if (m.physical !== null) return false;
+                    }
+
+                    if (showOnlySafetyAlerts) {
+                        if (m.physical === null || m.physical > m.safety) return false;
+                    }
+
+                    return true;
+                });
+
+                if (secMaterials.length === 0) return;
+
+                // Cabecera grande de sección (didáctico)
+                const secHeader = document.createElement('div');
+                secHeader.className = `${sec.bg} text-white px-5 py-4 rounded-2xl font-black text-sm tracking-widest uppercase flex justify-between items-center shadow-md mt-6 mb-3`;
+                secHeader.innerHTML = `
+                    <span>${sec.title}</span>
+                    <span class="text-[11px] bg-white/20 border border-white/20 px-3 py-1 rounded-xl font-black">${secMaterials.length} ÍTEMS</span>
+                `;
+                mainContainer.appendChild(secHeader);
+
+                // Contenedor de grilla/tarjetas
+                const secGrid = document.createElement('div');
+                secGrid.className = "grid grid-cols-1 md:grid-cols-2 gap-3.5";
+
+                secMaterials.forEach(m => {
+                    const globalIndex = materials.findIndex(item => item.material === m.material);
+                    
+                    const isCounted = m.physical !== null;
+                    const ajuste = isCounted ? (m.sap - m.physical) : 0;
+                    const isUnderSafety = isCounted && m.physical <= m.safety;
+
+                    // Formato visual de celda de ajuste
+                    let ajusteText = '-';
+                    let ajusteBadgeClass = 'bg-slate-100 text-slate-400 border-slate-200';
+                    if (isCounted) {
+                        if (ajuste === 0) {
+                            ajusteText = 'Coincide (0)';
+                            ajusteBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+                        } else if (ajuste > 0) {
+                            ajusteText = `Faltante SAP: +${ajuste}`;
+                            ajusteBadgeClass = 'bg-rose-100 text-rose-800 border-rose-300 font-black';
+                        } else {
+                            ajusteText = `Sobrante SAP: ${ajuste}`;
+                            ajusteBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300 font-black';
+                        }
+                    }
+
+                    // Card APB (Super visible, interactiva y robusta)
+                    const card = document.createElement('div');
+                    card.onclick = () => openEditModal(globalIndex);
+                    
+                    let cardBorderClass = isUnderSafety ? 'border-rose-500 bg-rose-50/30' : 'border-slate-200 bg-white';
+                    if (!isCounted) cardBorderClass = 'border-dashed border-slate-300 bg-slate-50/50';
+
+                    card.className = `border-2 ${cardBorderClass} rounded-2xl p-4 shadow-sm hover:border-slate-400 transition-all cursor-pointer flex flex-col justify-between space-y-4`;
+
+                    // Banner superior de alerta roja intermitente si requiere reabastecimiento
+                    const warningBanner = isUnderSafety 
+                        ? `<div class="bg-rose-600 text-white text-[9px] font-black tracking-widest px-2.5 py-1.5 rounded-lg flex items-center justify-center space-x-1.5 uppercase animate-pulse">
+                            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                            <span>⚠️ PUNTO DE PEDIDO URGENTE (Faltan ${m.safety - m.physical} ${m.um})</span>
+                           </div>`
+                        : '';
+
+                    card.innerHTML = `
+                        ${warningBanner}
+                        <!-- Encabezado de la Tarjeta -->
+                        <div class="flex justify-between items-start">
+                            <div class="space-y-1">
+                                <span class="bg-slate-900 text-white font-mono text-xs font-black px-3 py-1.5 rounded-lg border border-slate-950 inline-block tracking-widest shadow-inner">${m.material}</span>
+                                <h4 class="text-xs font-black text-slate-800 leading-snug mt-1.5 uppercase">${m.desc}</h4>
+                            </div>
+                        </div>
+
+                        <!-- Grilla Didáctica de Valores (APB) -->
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <!-- Stock SAP -->
+                            <div class="bg-slate-100 border border-slate-200 p-2 rounded-xl">
+                                <span class="text-[8px] text-slate-400 font-black block uppercase mb-1">STOCK SAP</span>
+                                <strong class="text-slate-700 text-sm font-black font-mono">${formatNumber(m.sap)}</strong> <span class="text-[9px] text-slate-400 font-bold">${m.um}</span>
+                            </div>
+
+                            <!-- Stock Físico Contado -->
+                            <div class="border-2 p-2 rounded-xl flex flex-col justify-center items-center ${isCounted ? 'bg-slate-950 text-white border-slate-950 font-black' : 'bg-white text-slate-400 border-dashed border-slate-300'}">
+                                <span class="text-[8px] ${isCounted ? 'text-slate-400' : 'text-slate-400'} font-black block uppercase mb-0.5">CONTADO</span>
+                                <strong class="text-sm font-black font-mono">${isCounted ? formatNumber(m.physical) : 'FALTA'}</strong>
+                            </div>
+
+                            <!-- Stock de Seguridad -->
+                            <div class="bg-slate-100 border border-slate-200 p-2 rounded-xl">
+                                <span class="text-[8px] text-slate-400 font-black block uppercase mb-1">MÍNIMO</span>
+                                <strong class="text-slate-700 text-sm font-black font-mono">${formatNumber(m.safety)}</strong> <span class="text-[9px] text-slate-400 font-bold">${m.um}</span>
+                            </div>
+                        </div>
+
+                        <!-- Estado del Ajuste -->
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+                            <span class="text-[9px] text-slate-400 font-black uppercase">ESTADO DE ACCIÓN:</span>
+                            <span class="border px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${ajusteBadgeClass}">${ajusteText}</span>
+                        </div>
+                    `;
+                    secGrid.appendChild(card);
+                });
+
+                mainContainer.appendChild(secGrid);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Filtro de Secciones
+        function filterSection(section) {
+            currentSectionFilter = section;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-900', 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+
+            const activeBtn = document.getElementById(`tab-${section}`);
+            activeBtn.classList.remove('bg-slate-100', 'text-slate-600');
+            activeBtn.classList.add('bg-slate-900', 'text-white');
+
+            renderPlanillaSections();
+        }
+
+        // Filtro de Estado
+        function filterState() {
+            const selected = document.querySelector('input[name="state-filter"]:checked').value;
+            currentStateFilter = selected;
+            renderPlanillaSections();
+        }
+
+        // Filtro de Reposición
+        function toggleSafetyAlertFilter() {
+            showOnlySafetyAlerts = !showOnlySafetyAlerts;
+            renderStats();
+            renderPlanillaSections();
+            if (showOnlySafetyAlerts) {
+                showToast("Filtro: Mostrando materiales bajo Punto de Pedido.");
+            }
+        }
+
+        // MODAL DE EDICIÓN
+        function openEditModal(index) {
+            activeMaterialIndex = index;
+            const m = materials[index];
+
+            document.getElementById('modal-section').textContent = m.section === 'ESTANTERIA' ? 'ESTANTERÍA' : m.section === 'PRIMER' ? 'PRIMER & ADHESIVO' : 'OFICINA';
+            document.getElementById('modal-desc').textContent = m.desc;
+            document.getElementById('modal-code').textContent = m.material;
+            document.getElementById('modal-cta').textContent = m.cta;
+            document.getElementById('modal-sap').textContent = formatNumber(m.sap);
+            document.getElementById('modal-um').textContent = m.um;
+            document.getElementById('modal-safety').textContent = formatNumber(m.safety);
+            document.getElementById('modal-um-sec').textContent = m.um;
+
+            const input = document.getElementById('physical-input');
+            input.value = m.physical !== null ? m.physical : '';
+
+            const safetyTag = document.getElementById('modal-safety-tag');
+            const checkSafetyStatus = (val) => {
+                if (val !== null && !isNaN(val) && val <= m.safety) {
+                    safetyTag.classList.remove('hidden');
+                } else {
+                    safetyTag.classList.add('hidden');
+                }
+            };
+
+            checkSafetyStatus(m.physical);
+
+            // Cambios de entrada
+            input.oninput = () => {
+                const val = input.value !== '' ? parseFloat(input.value) : null;
+                checkSafetyStatus(val);
+            };
+
+            // CONFIRMACIÓN CON ENTER
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); 
+                    savePhysicalValue(); 
+                }
+            };
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+            input.focus();
+            input.select();
+        }
+
+        // Abrir modal de confirmación de limpieza de conteos (ABP)
+        function openConfirmClearModal() {
+            document.getElementById('confirm-clear-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmClearModal() {
+            document.getElementById('confirm-clear-modal').classList.add('hidden');
+        }
+
+        function executeClearCounts() {
+            materials.forEach(m => {
+                m.physical = null;
+            });
+            saveState();
+            renderPlanillaSections();
+            closeConfirmClearModal();
+            showToast("Todos los conteos físicos han sido reiniciados.");
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            activeMaterialIndex = null;
+        }
+
+        function adjustPhysicalCount(amount) {
+            const input = document.getElementById('physical-input');
+            let val = parseFloat(input.value) || 0;
+            let newVal = Math.max(0, val + amount);
+            input.value = newVal;
+
+            const safetyLimit = materials[activeMaterialIndex].safety;
+            const safetyTag = document.getElementById('modal-safety-tag');
+            if (newVal <= safetyLimit) {
+                safetyTag.classList.remove('hidden');
+            } else {
+                safetyTag.classList.add('hidden');
+            }
+        }
+
+        function presetPhysicalValue(value) {
+            const input = document.getElementById('physical-input');
+            input.value = value;
+            
+            const safetyLimit = materials[activeMaterialIndex].safety;
+            const safetyTag = document.getElementById('modal-safety-tag');
+            if (value <= safetyLimit) {
+                safetyTag.classList.remove('hidden');
+            } else {
+                safetyTag.classList.add('hidden');
+            }
+        }
+
+        function savePhysicalValue() {
+            if (activeMaterialIndex === null) return;
+            const input = document.getElementById('physical-input');
+            
+            if (input.value === '') {
+                materials[activeMaterialIndex].physical = null;
+            } else {
+                materials[activeMaterialIndex].physical = parseFloat(input.value);
+            }
+
+            saveState();
+            renderPlanillaSections();
+            closeEditModal();
+            showToast("Stock registrado.");
+        }
+
+        // CONFIRMACIÓN Y RESTABLECIMIENTO DE VALORES (CERO TOTAL)
+        function openConfirmResetModal() {
+            document.getElementById('confirm-reset-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmResetModal() {
+            document.getElementById('confirm-reset-modal').classList.add('hidden');
+        }
+
+        function executeMasterReset() {
+            materials.forEach(m => {
+                m.sap = 0;
+                m.physical = 0;
+            });
+            saveState();
+            renderPlanillaSections();
+            closeConfirmResetModal();
+            showToast("Planilla restablecida a cero.");
+        }
+
+        // PARSER INTELIGENTE DE EXCEL/CSV (Req. 3 - Libre Utilización + Trans./Trasl.)
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                try {
+                    const parsedMaterials = parseStockCSV(text);
+                    if (parsedMaterials && parsedMaterials.length > 0) {
+                        parsedMaterials.forEach(imported => {
+                            const existing = materials.find(m => m.material.trim().toUpperCase() === imported.material.trim().toUpperCase());
+                            if (existing) {
+                                existing.sap = imported.sap;
+                                existing.um = imported.um;
+                                if (imported.desc && imported.desc !== `Material ${imported.material}`) {
+                                    existing.desc = imported.desc;
+                                }
+                            } else {
+                                materials.push(imported);
+                            }
+                        });
+
+                        saveState();
+                        renderStats();
+                        renderPlanillaSections();
+                        showToast(`¡Sincronizado! ${parsedMaterials.length} materiales actualizados.`);
+                    } else {
+                        showToast("Error: No se encontraron datos válidos en el CSV.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast("Error de formato al procesar el archivo CSV.");
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+            event.target.value = ''; 
+        }
+
+        // Analizador de línea de CSV compatible con comillas simples y dobles
+        function parseCSVLine(line, separator) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === separator && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function parseStockCSV(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return null;
+
+            const header = lines[0];
+            const separator = header.includes(';') ? ';' : ',';
+            const headers = header.split(separator).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+            
+            // Buscar columnas requeridas exactamente o por aproximación
+            const idxMaterial = headers.findIndex(h => h === 'material' || h.includes('código') || h.includes('codigo'));
+            const idxDesc = headers.findIndex(h => h === 'texto breve de material' || h.includes('descripcion') || h.includes('descripción'));
+            const idxUm = headers.findIndex(h => h === 'umb' || h === 'um');
+            const idxSection = headers.findIndex(h => h.includes('seccion') || h.includes('area'));
+
+            // Columnas requeridas para la sumatoria (Req. 3)
+            const idxLibre = headers.findIndex(h => h === 'libre utilización' || h === 'libre utilizacion' || h.includes('libre'));
+            const idxTrans = headers.findIndex(h => h === 'trans./trasl.' || h === 'trans/trasl' || h.includes('trans'));
+
+            if (idxMaterial === -1) {
+                alert("El CSV debe contener al menos la columna 'Material'.");
+                return null;
+            }
+
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cells = parseCSVLine(line, separator);
+                if (cells.length < 2) continue;
+
+                const material = cells[idxMaterial];
+                if (!material) continue;
+
+                const desc = idxDesc !== -1 && cells[idxDesc] ? cells[idxDesc] : `Material ${material}`;
+                const um = idxUm !== -1 && cells[idxUm] ? cells[idxUm] : 'UN';
+                const sectionRaw = idxSection !== -1 && cells[idxSection] ? cells[idxSection].toUpperCase() : '';
+
+                // Determinar sector automáticamente
+                let section = 'ESTANTERIA';
+                if (sectionRaw.includes('PRIMER') || sectionRaw.includes('ADH') || material.startsWith('L-015') || material.startsWith('L-016') || material.startsWith('L-022') || material.startsWith('L-023')) {
+                    section = 'PRIMER';
+                } else if (sectionRaw.includes('OFICINA') || material.startsWith('L-017') || material.startsWith('L-019')) {
+                    section = 'OFICINA';
+                } else if (sectionRaw.includes('PLAYON') || material.startsWith('EM-033') || material.startsWith('EM-035') || material.startsWith('EM-036') || material.startsWith('EM-037')) {
+                    section = 'PLAYON';
+                }
+
+                // Sumar Libre utilización y Trans./Trasl.
+                let libreVal = 0;
+                if (idxLibre !== -1 && cells[idxLibre]) {
+                    libreVal = parseFloat(cells[idxLibre].replace(/[^0-9.-]/g, '')) || 0;
+                }
+                
+                let transVal = 0;
+                if (idxTrans !== -1 && cells[idxTrans]) {
+                    transVal = parseFloat(cells[idxTrans].replace(/[^0-9.-]/g, '')) || 0;
+                }
+
+                const sapSum = libreVal + transVal;
+
+                result.push({
+                    section: section,
+                    material: material,
+                    desc: desc,
+                    sap: sapSum,
+                    um: um,
+                    physical: null, 
+                    cta: "42000244",
+                    cc: "TPF1312000",
+                    safety: 0
+                });
+            }
+            return result;
+        }
+
+        // Guardar parámetros de EmailJS
+        function saveEmailJSParams() {
+            const pubKey = document.getElementById('emailjs-public-key').value.trim();
+            const servId = document.getElementById('emailjs-service-id').value.trim();
+            const tempId = document.getElementById('emailjs-template-id').value.trim();
+
+            localStorage.setItem('emailjs_public_key', pubKey);
+            localStorage.setItem('emailjs_service_id', servId);
+            localStorage.setItem('emailjs_template_id', tempId);
+        }
+
+        // Alternar pestañas en el Modal de Exportación
+        function switchExportTab(tab) {
+            activeExportTab = tab;
+            const btnDif = document.getElementById('tab-exp-diferencias');
+            const btnCom = document.getElementById('tab-exp-compras');
+            const contDif = document.getElementById('export-tab-content-diferencias');
+            const contCom = document.getElementById('export-tab-content-compras');
+
+            if (tab === 'diferencias') {
+                btnDif.className = "flex-1 py-3 text-center rounded-xl font-black bg-slate-850 text-emerald-400";
+                btnCom.className = "flex-1 py-3 text-center rounded-xl font-black bg-transparent text-slate-400 hover:text-white";
+                contDif.classList.remove('hidden');
+                contCom.classList.add('hidden');
+            } else {
+                btnCom.className = "flex-1 py-3 text-center rounded-xl font-black bg-slate-850 text-emerald-400";
+                btnDif.className = "flex-1 py-3 text-center rounded-xl font-black bg-transparent text-slate-400 hover:text-white";
+                contCom.classList.remove('hidden');
+                contDif.classList.add('hidden');
+            }
+        }
+
+        // Copiar al portapapeles sin romper el iframe
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; 
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast("¡Texto copiado!");
+                } else {
+                    showToast("Error al copiar automáticamente.");
+                }
+            } catch (err) {
+                showToast("Error al copiar.");
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Generar texto tabulado listo para SAP (MI04)
+        function generateSapRawText() {
+            const difs = getDiferenciasOnly();
+            if (difs.length === 0) return "No hay diferencias registradas.";
+            return difs.map(m => `${m.material}\t${m.physical}`).join('\n');
+        }
+
+        function copySapBlockToClipboard() {
+            const text = generateSapRawText();
+            copyToClipboard(text);
+        }
+
+        // Generar el bloque formateado para Compras (Puntos de pedido)
+        function generatePurchasesRawText() {
+            const reorderItems = materials.filter(m => m.physical !== null && m.physical <= m.safety);
+            if (reorderItems.length === 0) return "No hay alertas de reposición urgentes para hoy.";
+
+            const fechaStr = new Date().toLocaleDateString('es-AR');
+            let txt = `📋 *REQUERIMIENTO DE COMPRAS - EMBALAJES 3101* (${fechaStr})\n`;
+            txt += `===============================================\n`;
+            
+            reorderItems.forEach(m => {
+                const faltante = m.safety - m.physical;
+                txt += `- Cod: ${m.material}\n  Material: ${m.desc}\n  Físico actual: ${m.physical} ${m.um} (Mínimo: ${m.safety} ${m.um})\n  Faltante Mínimo para Reponer: ${faltante > 0 ? faltante : 0} ${m.um}\n\n`;
+            });
+            txt += `===============================================\n`;
+            return txt;
+        }
+
+        // Obtener diferencias activas
+        function getDiferenciasOnly() {
+            return materials.filter(m => m.physical !== null && m.physical !== undefined && !isNaN(m.physical) && (m.sap - m.physical) !== 0);
+        }
+
+        function copyPurchasesBlockToClipboard() {
+            const text = generatePurchasesRawText();
+            copyToClipboard(text);
+        }
+
+        // Exportar a Modal de diferencias
+        function openExportModal() {
+            try {
+                const targetEmailInput = document.getElementById('target-email');
+                const targetEmail = targetEmailInput ? targetEmailInput.value : 'admlaminado@muchtek.com, dbargas@muchtek.com';
+                
+                const previewEmailEl = document.getElementById('preview-email');
+                if (previewEmailEl) {
+                    previewEmailEl.textContent = targetEmail;
+                }
+
+                const difs = getDiferenciasOnly();
+                const tbody = document.getElementById('preview-table-body');
+                
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    if (difs.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="p-4 text-center text-slate-400 italic">No se registran diferencias en el conteo físico actual.</td>
+                            </tr>
+                        `;
+                    } else {
+                        difs.forEach(m => {
+                            const ajuste = m.sap - m.physical;
+                            const ajusteSign = ajuste > 0 ? `+${ajuste}` : `${ajuste}`;
+                            tbody.innerHTML += `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="p-2 font-bold">${m.material}</td>
+                                    <td class="p-2 text-right">${formatNumber(m.sap)}</td>
+                                    <td class="p-2 text-right">${formatNumber(m.physical)}</td>
+                                    <td class="p-2 text-right font-black ${ajuste > 0 ? 'text-rose-600' : 'text-amber-600'}">${ajusteSign}</td>
+                                    <td class="p-2 text-center text-slate-500">${m.cta}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+
+                document.getElementById('sap-raw-textarea').textContent = generateSapRawText();
+                document.getElementById('purchases-raw-textarea').textContent = generatePurchasesRawText();
+
+                switchExportTab('diferencias');
+                document.getElementById('export-modal').classList.remove('hidden');
+            } catch (err) {
+                console.error("Error al abrir modal:", err);
+            }
+        }
+
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+        }
+
+        // Descargar reporte Excel (CSV)
+        function downloadCleanCSV() {
+            const difs = getDiferenciasOnly();
+            if (difs.length === 0) {
+                showToast("No hay diferencias para exportar.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            csvContent += "Material,Stock SAP,Stock Fisico,Ajuste,Cuenta Mayor\r\n";
+
+            difs.forEach(m => {
+                const ajuste = m.sap - m.physical;
+                csvContent += `${m.material},${m.sap},${m.physical},${ajuste},${m.cta}\r\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            const fechaStr = new Date().toISOString().split('T')[0];
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Ajustes_Stock_Embalajes_3101_${fechaStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Archivo CSV descargado.");
+        }
+
+        // ENVIAR REPORTE AUTOMÁTICO VÍA EMAILJS
+        async function sendViaEmailJS() {
+            const publicKey = document.getElementById('emailjs-public-key').value.trim();
+            const serviceId = document.getElementById('emailjs-service-id').value.trim();
+            const templateId = document.getElementById('emailjs-template-id').value.trim();
+            const targetEmail = document.getElementById('target-email').value.trim() || "admlaminado@muchtek.com, dbargas@muchtek.com";
+
+            if (!publicKey || !serviceId || !templateId) {
+                showToast("EmailJS no configurado. Abriendo cliente de correo nativo...");
+                setTimeout(() => {
+                    sendViaMailClient();
+                }, 1500);
+                return;
+            }
+
+            const sendBtn = document.getElementById('send-email-btn');
+            const originalContent = sendBtn.innerHTML;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = `
+                <div class="flex items-center justify-center space-x-1.5">
+                    <svg class="animate-spin h-4 w-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Enviando Correo...</span>
+                </div>
+            `;
+
+            try {
+                emailjs.init({ publicKey: publicKey });
+
+                const difs = getDiferenciasOnly();
+                const fechaStr = new Date().toLocaleDateString('es-AR');
+                const sapText = generateSapRawText();
+
+                let plainTextBody = `Estimado Equipo,\n\nSe adjunta el reporte de diferencias de stock físico para la planilla "CONTROL Y AJUSTE DE EMBALAJES 3101".\n\n`;
+                plainTextBody += `Fecha de Control: ${fechaStr}\n`;
+                plainTextBody += `Diferencias Totales: ${difs.length} materiales.\n\n`;
+                
+                if (difs.length > 0) {
+                    plainTextBody += `[BLOQUE SAP]\n${sapText}\n`;
+                }
+
+                let htmlBody = `
+                    <div style="font-family: sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                        <div style="background-color: #0f172a; color: white; padding: 15px; border-radius: 8px 8px 0 0; text-align: center;">
+                            <h2 style="margin: 0; font-size: 16px; letter-spacing: 1px;">CONTROL Y AJUSTE DE EMBALAJES 3101</h2>
+                        </div>
+                        <div style="padding: 20px;">
+                            <p><strong>Fecha de Registro:</strong> ${fechaStr}</p>
+                            <p><strong>Destinatarios:</strong> ${targetEmail}</p>
+                            
+                            <h3 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; font-size: 13px; margin-top:20px;">1. Ajustes Masivos para SAP</h3>
+                            <pre style="background-color: #f1f5f9; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; overflow-x: auto; color: #0f172a; border: 1px solid #cbd5e1;">${sapText}</pre>
+                            
+                            <h3 style="color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; font-size: 13px; margin-top: 25px;">2. Detalle de Ajustes Requeridos</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px;">
+                                <thead>
+                                    <tr style="background-color: #f8fafc; text-align: left;">
+                                        <th style="padding: 8px; border: 1px solid #cbd5e1;">Material</th>
+                                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">SAP</th>
+                                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">Físico</th>
+                                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">Ajuste</th>
+                                        <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">Cuenta</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                if (difs.length === 0) {
+                    htmlBody += `
+                        <tr>
+                            <td colspan="5" style="padding: 12px; text-align: center; color: #94a3b8; font-style: italic; border: 1px solid #cbd5e1;">Todo el stock coincide perfectamente.</td>
+                        </tr>
+                    `;
+                } else {
+                    difs.forEach(m => {
+                        const ajuste = m.sap - m.physical;
+                        const ajusteSign = ajuste > 0 ? `+${ajuste}` : `${ajuste}`;
+                        const colorAjuste = ajuste > 0 ? '#b91c1c' : '#b45309'; 
+                        htmlBody += `
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; font-family: monospace;">${m.material}</td>
+                                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatNumber(m.sap)}</td>
+                                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatNumber(m.physical)}</td>
+                                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: ${colorAjuste}; font-family: monospace;">${ajusteSign}</td>
+                                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; color: #475569; font-family: monospace;">${m.cta}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                htmlBody += `
+                                </tbody>
+                            </table>
+                `;
+
+                const reorderItems = materials.filter(m => m.physical !== null && m.physical <= m.safety);
+                if (reorderItems.length > 0) {
+                    htmlBody += `
+                        <h3 style="color: #b91c1c; border-bottom: 2px solid #fee2e2; padding-bottom: 5px; font-size: 13px; margin-top: 25px;">⚠️ Alertas de Compras</h3>
+                        <ul style="padding-left: 20px; font-size: 11px; line-height: 1.6; margin-top: 5px;">
+                    `;
+                    reorderItems.forEach(m => {
+                        const faltante = m.safety - m.physical;
+                        htmlBody += `
+                            <li style="margin-bottom: 6px;">
+                                <strong>${m.material} - ${m.desc}:</strong> Stock actual <span style="color:#b91c1c; font-weight:bold;">${m.physical} ${m.um}</span> (Mínimo: ${m.safety} ${m.um}). Reponer: <strong>${faltante > 0 ? faltante : 0} ${m.um}</strong>
+                            </li>
+                        `;
+                    });
+                    htmlBody += `</ul>`;
+                }
+
+                htmlBody += `
+                        </div>
+                    </div>
+                `;
+
+                const templateParams = {
+                    to_email: targetEmail,
+                    subject: `Control de Embalajes 3101 - Reporte de Ajustes SAP (${fechaStr})`,
+                    message_html: htmlBody,
+                    message_text: plainTextBody
+                };
+
+                await emailjs.send(serviceId, templateId, templateParams);
+                
+                showToast("¡Correo enviado exitosamente!");
+                closeExportModal();
+            } catch (error) {
+                console.error("Fallo EmailJS:", error);
+                showToast("Fallo EmailJS. Iniciando correo nativo...");
+                setTimeout(() => {
+                    sendViaMailClient();
+                }, 1200);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalContent;
+            }
+        }
+
+        // ENVIAR REPORTE POR EMAIL (RESPALDO TRADICIONAL MAILTO)
+        function sendViaMailClient() {
+            const targetEmailInput = document.getElementById('target-email');
+            const targetEmail = targetEmailInput ? targetEmailInput.value : "admlaminado@muchtek.com, dbargas@muchtek.com";
+
+            const difs = getDiferenciasOnly();
+            const fechaStr = new Date().toLocaleDateString('es-AR');
+
+            let subject = encodeURIComponent(`Control de Embalajes 3101 - Reporte de Ajustes SAP (${fechaStr})`);
+            
+            let body = `Estimado Equipo,\n\nSe adjunta el reporte semanal de diferencias de stock físico detectadas.\n\n`;
+            body += `Fecha de Control: ${fechaStr}\n`;
+            body += `Diferencias Totales: ${difs.length} materiales.\n\n`;
+            
+            if (difs.length > 0) {
+                body += `[BLOQUE SAP]\n${generateSapRawText()}\n\n`;
+                body += `DETALLE PARA CONTROL DE AJUSTES:\n`;
+                body += `==========================================================\n`;
+                difs.forEach(m => {
+                    const ajuste = m.sap - m.physical;
+                    const ajusteSign = ajuste > 0 ? `+${ajuste}` : `${ajuste}`;
+                    body += `${m.material.padEnd(10, ' ')} | SAP: ${m.sap.toString().padEnd(6, ' ')} | Físico: ${m.physical.toString().padEnd(6, ' ')} | Ajuste: ${ajusteSign.padEnd(5, ' ')} | Cta: ${m.cta}\n`;
+                });
+                body += `==========================================================\n\n`;
+            }
+
+            const reorderItems = materials.filter(m => m.physical !== null && m.physical <= m.safety);
+            if (reorderItems.length > 0) {
+                body += `REQUERIMIENTO DE COMPRA (PUNTOS DE PEDIDO):\n`;
+                body += `==========================================================\n`;
+                reorderItems.forEach(m => {
+                    const faltante = m.safety - m.physical;
+                    body += `- Cod: ${m.material} | ${m.desc}\n  Físico: ${m.physical} (Mín: ${m.safety}) | Falta pedir: ${faltante > 0 ? faltante : 0} ${m.um}\n\n`;
+                });
+                body += `==========================================================\n\n`;
+            }
+
+            body += `Atentamente,\nControl de Inventario Digital.`;
+            
+            const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${encodeURIComponent(body)}`;
+            window.location.href = mailtoUrl;
+            showToast("Abriendo cliente de correo local...");
+        }
+    </script>
+</body>
+</html>
