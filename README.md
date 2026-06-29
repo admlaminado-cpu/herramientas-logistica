@@ -1,2 +1,0 @@
-# herramientas-logistica
-PAGINAS LAMINADO
