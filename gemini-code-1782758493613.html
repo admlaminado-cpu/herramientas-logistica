@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de la Fábrica</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 { color: #333; margin-bottom: 30px; }
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .btn {
+            display: block;
+            padding: 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s;
+        }
+        .btn:active { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h1>Aplicaciones de la Fábrica</h1>
+
+    <div class="menu-container">
+        <a class="btn" href="./control-stock/">📦 Control de Stock</a>
+        <a class="btn" href="./registro-fallas/">⚠️ Registro de Fallas</a>
+        <a class="btn" href="./calculadora-tiempos/">⏱️ Calculadora de Tiempos</a>
+    </div>
+
+</body>
+</html>
